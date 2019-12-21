@@ -1,0 +1,1 @@
+fun ((x, _) : (int, string)) -> case x of | a -> y | _ -> z
