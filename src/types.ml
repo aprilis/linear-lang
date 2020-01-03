@@ -51,15 +51,15 @@ let rec map f (l, t) =
     | TArray l -> TArray (map f l)
   in (l, f t)
 
-let rec mapVar f (l, t) =
+let rec map_var f (l, t) =
   (l, match t with
     | TPrim s -> TPrim s
     | TVar x -> TVar (f x)
     | TNonLinVar x -> TNonLinVar (f x)
-    | TFunc (a, b) -> TFunc (mapVar f a, mapVar f b)
-    | TTuple l -> TTuple (List.map (mapVar f) l)
-    | TList l -> TList (mapVar f l)
-    | TArray l -> TArray (mapVar f l)
+    | TFunc (a, b) -> TFunc (map_var f a, map_var f b)
+    | TTuple l -> TTuple (List.map (map_var f) l)
+    | TList l -> TList (map_var f l)
+    | TArray l -> TArray (map_var f l)
   )
 
 let rec fold f (l, t) a =

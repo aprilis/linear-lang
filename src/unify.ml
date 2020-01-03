@@ -6,19 +6,19 @@ exception Error of string * var_t Types.typ * var_t Types.typ
 
 module VarSet = Set.Make(struct type t = var_t let compare = compare end)
 
-let stringOfChars chars = 
+let string_of_chars chars = 
   let buf = Buffer.create 1 in
   List.iter (Buffer.add_char buf) chars;
   Buffer.contents buf
 
 let alphabet = String.to_seq "abcdefghijklmnopqrstuvwxyz"
-let rec namesList () =
-   Seq.Cons([], Seq.flat_map (fun x -> Seq.map (fun y -> y::x) alphabet) namesList)
+let rec names_list () =
+   Seq.Cons([], Seq.flat_map (fun x -> Seq.map (fun y -> y::x) alphabet) names_list)
 let names =
-  let Seq.Cons(_, t) = namesList () in
-  t |> Seq.map List.rev |> Seq.map stringOfChars
+  let Seq.Cons(_, t) = names_list () in
+  t |> Seq.map List.rev |> Seq.map string_of_chars
 
-let freshNames () =
+let fresh_names () =
   let names = ref names in
   let mapping = Hashtbl.create 16 in
   fun x ->
@@ -28,7 +28,7 @@ let freshNames () =
       names := t);
     Hashtbl.find mapping x
 
-let unifyVarT a b =
+let unify_var_t a b =
   let mapping = Hashtbl.create 16 in
   let rec aux used (l1, t1) (l2, t2) =
     let failwith msg = raise @@ Error (msg, (l1, t1), (l2, t2)) in
@@ -63,15 +63,15 @@ let unifyVarT a b =
         | _ -> failwith "Type mismatch"
     in (l1, t) in
   let u = aux VarSet.empty a b in
-  mapVar (freshNames ()) u 
+  map_var (fresh_names ()) u 
 
 let unify a b =
-  let a = mapVar (fun x -> (1, x)) a and b = mapVar (fun x -> (2, x)) b in
-  unifyVarT a b
+  let a = map_var (fun x -> (1, x)) a and b = map_var (fun x -> (2, x)) b in
+  unify_var_t a b
 
-let unifyAndInfer a b c =
-  let a = List.map (mapVar (fun x -> (1, x))) a
-  and b = List.map (mapVar (fun x -> (2, x))) b
-  and c = mapVar (fun x -> (1, x)) c in
-  let (_, TTuple l) = unifyVarT (false, TTuple (c::a)) (false, TTuple (c::b))
+let unify_and_infer a b c =
+  let a = List.map (map_var (fun x -> (1, x))) a
+  and b = List.map (map_var (fun x -> (2, x))) b
+  and c = map_var (fun x -> (1, x)) c in
+  let (_, TTuple l) = unify_var_t (false, TTuple (c::a)) (false, TTuple (c::b))
   in List.hd l
