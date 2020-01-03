@@ -8,7 +8,8 @@ let white = [' ' '\t']+
 let newline = '\r' | '\n' | "\r\n"
 let int = '-'? ['0'-'9'] ['0'-'9']*
 let idchar = ['a'-'z' 'A'-'Z' '_']
-let id = idchar (idchar | ['0'-'9'])*
+let varid = ['a'-'z' '_'] (idchar | ['0'-'9'])*
+let constrid = ['A'-'Z'] (idchar | ['0'-'9'])*
 
 rule read =
   parse
@@ -29,6 +30,8 @@ rule read =
   | "case" {CASE}
   | "of" {OF}
   | ":" {COLON}
+  | "." {DOT}
+  | "?" {QUEST}
   | "," {COMMA}
   | "(" {LPAR}
   | ")" {RPAR}
@@ -47,7 +50,8 @@ rule read =
   | "||" {OR}
   | "::" {CONS}
   | "_" {WILD}
-  | id {ID (Lexing.lexeme lexbuf)}
+  | varid {VAR_ID (Lexing.lexeme lexbuf)}
+  | constrid {CONSTR_ID (Lexing.lexeme lexbuf)}
   | _ { failwith ("Unexpected char: " ^ Lexing.lexeme lexbuf) }
   | eof {EOF}
 and read_string buf =

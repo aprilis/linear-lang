@@ -1,1 +1,1 @@
-fun ((x, _) : (int, string)) -> case x of | a -> y | _ -> z
+fun ((x, _) : ?a, b, ?c, d . (a, string)) -> case x of | [a, x, y] -> [1, x, 3, 4] | y -> x + 3 * "abc"

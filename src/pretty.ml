@@ -1,7 +1,9 @@
-open Syntax
+open Types
+open Util
 open Format
 
 let printStr ppf s = fprintf ppf "%s" s
+let printInt ppf s = fprintf ppf "`%d`" s
 
 let lpar ppf yes = if yes then printStr ppf "("
 let rpar ppf yes = if yes then printStr ppf ")"
@@ -13,7 +15,14 @@ let printList f ppf l =
       List.iter (fprintf ppf ",@ %a" f) t
     | [] -> ()
 
-let printType ppf t = 
+let printTyp ppf t = 
+  let vars = Types.fold List.cons t [] |>
+    Util.filter_map (function 
+      | _, TVar x -> Some ("?" ^ x) 
+      | _, TNonLinVar x -> Some x 
+      | _ -> None) in
+  printList printStr ppf vars;
+  if vars <> [] then fprintf ppf "@ . ";
   let rec aux rarrow ppf t =
     open_hovbox 1;
     begin match t with
@@ -30,7 +39,9 @@ let printType ppf t =
             fprintf ppf "%a@ ->@ %a" (aux true) x (aux false) y;
             rpar ppf rarrow
         | TList s -> fprintf ppf "[%a]" (aux false) s
-        | TPrim s -> printStr ppf s
+        | TPrim s
+        | TVar s
+        | TNonLinVar s -> printStr ppf s
         | TTuple l -> fprintf ppf "(%a)" (printList (aux false)) l
     end;
     close_box ()
@@ -46,37 +57,44 @@ let opStr op =
     | OOr -> "||"
     | OPlus -> "+"
 
-let rec printExpr ppf e = 
-  open_hvbox 1;
-  begin match e with
-    | EFun(lin, pat, typ, e) ->
-        fprintf ppf "fun (%a :@ %a) %s@ %a" printPat pat printType typ (arrowStr lin) printExpr e
-    | EIf(cond, e1, e2) ->
-        fprintf ppf "if %a then@ %a@ else %a" printExpr cond printExpr e1 printExpr e2
-    | EInt x -> fprintf ppf "%d" x
-    | EString x -> fprintf ppf "\"%s\"" x
-    | ELet(pat, e, e1) -> fprintf ppf "let %a =@ %a@ in %a" printPat pat printExpr e printExpr e1
-    | EROLet(pat, ro, e, e1) -> 
-        fprintf ppf "let {%a}@ %a =@ %a@ in %a" (printList printStr) ro printPat pat
-         printExpr e printExpr e1
-    | EList l -> fprintf ppf "[%a]" (printList printExpr) l
-    | ETuple l -> fprintf ppf "(%a)" (printList printExpr) l
-    | EArray l -> fprintf ppf "[|%a|]" (printList printExpr) l
-    | EOp(op, a, b) -> fprintf ppf "(%a@ %s@ %a)" printExpr a (opStr op) printExpr b
-    | EVar x -> printStr ppf x
-    | EApp(a, b) -> fprintf ppf "(%a %a)" printExpr a printExpr b
-    | ECase(e, m) -> 
-      fprintf ppf "case %a of" printExpr e;
-      List.iter (fun (p, e) -> fprintf ppf "@ | %a -> %a" printPat p printExpr e) m
-  end;
-  close_box ()
-and printPat ppf p =
-  match p with
-    | PVar x -> printStr ppf x
-    | PWild -> printStr ppf "_"
-    | PTuple l -> fprintf ppf "(%a)" (printList printPat) l
-    | PCons(h, t) -> fprintf ppf "%a::%a" printPat h printPat t
-    | PList l -> fprintf ppf "[%a]" (printList printPat) l
-    | PConstr(c, p) -> fprintf ppf "%s %a" c printPat p
+let printExpr f = 
+  let rec printPat ppf p =
+    match p with
+      | PVar x -> f ppf x
+      | PWild -> printStr ppf "_"
+      | PTuple l -> fprintf ppf "(%a)" (printList printPat) l
+      | PCons(h, t) -> fprintf ppf "%a::%a" printPat h printPat t
+      | PEmptyList -> printStr ppf "[]"
+      | PConstr(c, None) -> printStr ppf c
+      | PConstr(c, Some p) -> fprintf ppf "%s %a" c printPat p
+  in let rec printE ppf e =
+    open_hovbox 1;
+    begin match e with
+      | EFun(lin, pat, typ, e) ->
+          fprintf ppf "fun (%a :@ %a) %s@ %a" printPat pat printTyp typ (arrowStr lin) printE e
+      | EIf(cond, e1, e2) ->
+          fprintf ppf "if %a then@ %a@ else %a" printE cond printE e1 printE e2
+      | EInt x -> fprintf ppf "%d" x
+      | EString x -> fprintf ppf "\"%s\"" x
+      | ELet(pat, e, e1) -> fprintf ppf "let %a =@ %a@ in %a" printPat pat printE e printE e1
+      | EROLet(ro, pat, e, e1) -> 
+          fprintf ppf "let {%a}@ %a =@ %a@ in %a" (printList f) ro printPat pat
+          printE e printE e1
+      | ETuple l -> fprintf ppf "(%a)" (printList printE) l
+      | EArray l -> fprintf ppf "[|%a|]" (printList printE) l
+      | EEmptyList -> printStr ppf "[]"
+      | EOp(op, a, b) -> fprintf ppf "(%a@ %s@ %a)" printE a (opStr op) printE b
+      | EVar x -> f ppf x
+      | EApp(a, b) -> fprintf ppf "(%a %a)" printE a printE b
+      | ECase(e, m) -> 
+        fprintf ppf "case %a of" printE e;
+        List.iter (fun (p, e) -> fprintf ppf "@ | %a -> %a" printPat p printE e) m
+    end;
+    close_box ()
+  in printE
 
-let printEndline ppf f x = fprintf ppf "%a@." f x
+let printEndline f ppf x = fprintf ppf "%a@." f x
+
+let printType = printEndline printTyp
+let printIntExpr = printEndline (printExpr printInt)
+let printStringExpr = printEndline (printExpr printStr)
