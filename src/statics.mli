@@ -1,9 +1,13 @@
-exception RepeatedVariable of string * string Types.pattern
+exception RepeatedVariable of string * Types.pattern
 exception UnboundVariable of string
-exception TypeError of string * int Types.expr
+exception TypeError of string * Types.expr
 
 type op_env = Types.operator -> (string Types.typ * string Types.typ * string Types.typ)
-type typ_env = unit
+type env = {
+  ops: op_env;
+  vars: string Types.typ Map.Make(String).t;
+  types: Types.prim_type Map.Make(String).t;
+  lintypes: Types.prim_type Map.Make(String).t;
+}
 
-val to_int_ids: string Types.expr -> int Types.expr
-val infer_type: typ_env -> typ_env -> op_env -> int Types.expr -> string Types.typ
+val infer_type: env -> Types.expr -> string Types.typ

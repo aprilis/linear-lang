@@ -6,26 +6,12 @@ exception Error of string * var_t Types.typ * var_t Types.typ
 
 module VarSet = Set.Make(struct type t = var_t let compare = compare end)
 
-let string_of_chars chars = 
-  let buf = Buffer.create 1 in
-  List.iter (Buffer.add_char buf) chars;
-  Buffer.contents buf
-
-let alphabet = String.to_seq "abcdefghijklmnopqrstuvwxyz"
-let rec names_list () =
-   Seq.Cons([], Seq.flat_map (fun x -> Seq.map (fun y -> y::x) alphabet) names_list)
-let names =
-  let Seq.Cons(_, t) = names_list () in
-  t |> Seq.map List.rev |> Seq.map string_of_chars
-
 let fresh_names () =
-  let names = ref names in
+  let names = seq_to_stream names in
   let mapping = Hashtbl.create 16 in
   fun x ->
     (if not @@ Hashtbl.mem mapping x then
-      let Seq.Cons (h, t) = !names () in
-      Hashtbl.add mapping x h;
-      names := t);
+      Hashtbl.add mapping x (Stream.next names));
     Hashtbl.find mapping x
 
 let unify_var_t a b =

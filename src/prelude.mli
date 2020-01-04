@@ -1,1 +1,1 @@
-val operator_types: Statics.op_env
+val statics_env: Statics.env

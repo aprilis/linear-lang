@@ -13,34 +13,34 @@ and 'a typ = linearity * 'a styp
 type prim_type = (string * string typ option) list
 type type_def = TypeDef of linearity * string * prim_type
 
-type 'a pattern = 
-  | PVar of 'a 
+type pattern = 
+  | PVar of string
   | PWild 
-  | PTuple of 'a pattern list 
-  | PCons of 'a pattern * 'a pattern
+  | PTuple of pattern list 
+  | PCons of pattern * pattern
   | PEmptyList
-  | PConstr of string * 'a pattern option
+  | PConstr of linearity * string * pattern option
 
 type operator = OPlus | OMinus | OMult | ODiv
               | OGt | OLt | OGeq | OLeq | OEq | ONeq 
               | OAnd | OOr | OCons
 
-type 'a expr = 
-  | EFun of linearity * 'a pattern * string typ * 'a expr 
-  | EROLet of 'a list * 'a pattern * 'a expr * 'a expr 
-  | ELet of 'a pattern * 'a expr * 'a expr 
-  | ECase of 'a expr * ('a pattern * 'a expr) list 
-  | EIf of 'a expr * 'a expr * 'a expr
-  | EOp of operator * 'a expr * 'a expr
-  | EApp of 'a expr * 'a expr 
-  | ETuple of 'a expr list 
+type expr = 
+  | EFun of linearity * pattern * string typ * expr 
+  | EROLet of string list * pattern * expr * expr 
+  | ELet of pattern * expr * expr 
+  | ECase of expr * (pattern * expr) list 
+  | EIf of expr * expr * expr
+  | EOp of operator * expr * expr
+  | EApp of expr * expr 
+  | ETuple of expr list 
   | EEmptyList 
-  | EArray of 'a expr list 
+  | EArray of expr list 
   | EInt of int 
   | EString of string 
-  | EVar of 'a
+  | EVar of string
 
-type prog = type_def list * string expr
+type prog = type_def list * expr
 
 let linear = function
   | TPrim _

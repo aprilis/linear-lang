@@ -86,7 +86,7 @@ pat:
       List.fold_right (fun x y -> Types.PCons (x, y)) items Types.PEmptyList
     }
   | h = pat; CONS; t = pat                                  {Types.PCons (h, t)}
-  | constr = CONSTR_ID; p = pat?                            {Types.PConstr (constr, p)}
+  | lin = boption(EXCL); constr = CONSTR_ID; p = pat?       {Types.PConstr (lin, constr, p)}
 
 typ:
   | x = typ; lin = arrow; y = typ                           {(lin, Types.TFunc (x, y))}

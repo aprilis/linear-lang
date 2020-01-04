@@ -1,1 +1,1 @@
-fun ((x, _) : ?a, b, ?c, d . (a, string)) -> case x of | [a, x, y] -> [1, x, 3, 4] | y -> x + 3 * "abc"
+fun ((x, y, z) : forall ?a . (a, a, bool)) -> if z then (x, y) else (y, x)
