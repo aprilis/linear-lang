@@ -21,7 +21,9 @@ type 'a pattern =
   | PEmptyList
   | PConstr of string * 'a pattern option
 
-type operator = OPlus | OMinus | OMult | OAnd | OOr | OCons
+type operator = OPlus | OMinus | OMult | ODiv
+              | OGt | OLt | OGeq | OLeq | OEq | ONeq 
+              | OAnd | OOr | OCons
 
 type 'a expr = 
   | EFun of linearity * 'a pattern * string typ * 'a expr 
@@ -40,6 +42,15 @@ type 'a expr =
 
 type prog = type_def list * string expr
 
+let linear = function
+  | TPrim _
+  | TVar _
+  | TNonLinVar _
+  | TFunc _ -> false
+  | TTuple l -> List.exists fst l
+  | TList (l, _) -> l
+  | TArray (l, _) -> l
+
 let rec map f (l, t) =
   let t = match t with
     | TPrim s -> TPrim s
@@ -49,7 +60,7 @@ let rec map f (l, t) =
     | TTuple l -> TTuple (List.map (map f) l)
     | TList l -> TList (map f l)
     | TArray l -> TArray (map f l)
-  in (l, f t)
+  in f (l, t)
 
 let rec map_var f (l, t) =
   (l, match t with

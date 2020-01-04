@@ -2,7 +2,7 @@
 %token <string> STRING
 %token <string> VAR_ID
 %token <string> CONSTR_ID
-%token TYPE
+%token TYPE FORALL
 %token FUN ARROW LIN_ARROW
 %token LET BE IN
 %token IF THEN ELSE
@@ -10,7 +10,7 @@
 %token DOT QUEST
 %token COLON COMMA BAR EXCL
 %token LPAR RPAR LARRAY RARRAY LBRACKET RBRACKET LBRACE RBRACE
-%token PLUS MINUS MULT AND OR CONS
+%token PLUS MINUS MULT DIV GT LT GEQ LEQ EQ NEQ AND OR CONS
 %token WILD
 %token EOF
 
@@ -63,6 +63,13 @@ braced_list: LBRACE; l = separated_list(COMMA, id); RBRACE {l}
   | PLUS    {Types.OPlus}
   | MINUS   {Types.OMinus}
   | MULT    {Types.OMult}
+  | DIV     {Types.ODiv}
+  | GT      {Types.OGt}
+  | LT      {Types.OLt}
+  | GEQ     {Types.OGeq}
+  | LEQ     {Types.OLeq}
+  | EQ      {Types.OEq}
+  | NEQ     {Types.ONeq}
   | AND     {Types.OAnd}
   | OR      {Types.OOr}
   | CONS    {Types.OCons}
@@ -94,19 +101,19 @@ typ_:
   | LARRAY; x = typ; RARRAY                                 {(false, Types.TArray (x))}
 
 var_typ: v = type_var_list; t = typ {
-  Types.map (fun t ->
-    match t with
+  Types.map (fun (l, t) ->
+    (l, match t with
       | Types.TPrim x when List.mem (true, x) v ->
           Types.TVar x
       | Types.TPrim x when List.mem (false, x) v ->
           Types.TNonLinVar x
-      | _ -> t
+      | _ -> t)
   ) t
 }
 
 type_var_list:
   | {[]}
-  | v = separated_nonempty_list(COMMA, type_var); DOT {v}
+  | FORALL; v = separated_nonempty_list(COMMA, type_var); DOT {v}
 
 type_var:
   | QUEST; x = id  {(true, x)}

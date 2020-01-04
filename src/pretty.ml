@@ -16,13 +16,14 @@ let print_list f ppf l =
     | [] -> ()
 
 let print_typ ppf t = 
-  let vars = Types.fold List.cons t [] |>
-    Util.filter_map (function 
+  open_hovbox 1;
+  let vars = Types.fold List.cons t []
+    |> Util.filter_map (function 
       | _, TVar x -> Some ("?" ^ x) 
       | _, TNonLinVar x -> Some x 
-      | _ -> None) in
-  print_list print_str ppf vars;
-  if vars <> [] then fprintf ppf "@ . ";
+      | _ -> None)
+    |> List.sort_uniq compare in
+  if vars <> [] then fprintf ppf "forall %a@ . " (print_list print_str) vars;
   let rec aux rarrow ppf t =
     open_hovbox 1;
     begin match t with
@@ -45,7 +46,8 @@ let print_typ ppf t =
         | TTuple l -> fprintf ppf "(%a)" (print_list (aux false)) l
     end;
     close_box ()
-  in aux false ppf t
+  in aux false ppf t;
+  close_box ()
 
 let arrow_str lin = if lin then "-o" else "->"
 let op_str op = 
@@ -54,6 +56,13 @@ let op_str op =
     | OCons -> "::"
     | OMinus -> "-"
     | OMult -> "*"
+    | ODiv -> "/"
+    | OGt -> ">"
+    | OLt -> "<"
+    | OGeq -> ">="
+    | OLeq -> "<="
+    | OEq -> "=="
+    | ONeq -> "!="
     | OOr -> "||"
     | OPlus -> "+"
 

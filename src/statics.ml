@@ -1,11 +1,13 @@
 open Types
 open Util
 module StrEnv = Map.Make(String)
-module IntEnv = Map.Make(struct type t = int let compare = compare end)
 
 exception RepeatedVariable of string * string pattern
 exception UnboundVariable of string
 exception TypeError of string * int expr
+
+type op_env = Types.operator -> (string Types.typ * string Types.typ * string Types.typ)
+type typ_env = unit
 
 let fresh_int_id =
   let c = ref 0
@@ -83,9 +85,6 @@ let to_int_ids =
   in aux StrEnv.empty
 
 
-
-type type_env = string typ IntEnv.t
-
 let non_lin_env = IntEnv.filter (fun _ (lin, _) -> not lin)
 let lin_env = IntEnv.filter (fun _ (lin, _) -> lin)
 
@@ -101,6 +100,7 @@ let rec nonlinear (lin, t) =
   if lin then
     (false, match t with
       | TPrim _
+      | TNonLinVar _
       | TVar _ -> t
       | TFunc (_, _) -> TPrim "void"
       | TTuple l -> TTuple (List.map nonlinear l)
@@ -114,13 +114,15 @@ let assert_all_used e not_used =
     let not_used_var = fst @@ IntEnv.choose not_used in
     failwith (Format.sprintf "Unused linear value `%d`" not_used_var) e
 
+let assert_safe e ro t = ()
+
 let disjoint_union e =
   IntEnv.union (fun x _ _ -> failwith (Format.sprintf "Linear variable `%d` used twice" x) e)
 
 let swap_pair (a, b) = (b, a)
 
 let print_type ppf t =
-  let f (a, b) = Format.sprintf "(%d)%s" a b in
+  let f (a, b) = Format.sprintf "%s%d" b a in
   Pretty.print_type ppf (map_var f t)
 
 let unify_all e (h::t) =
@@ -138,8 +140,7 @@ let same_used e (h::t) =
   if List.for_all (eq h) t then h
   else failwith "Inconsistent linear variables usage" e
 
-let fix_lin t = t
-let auto_lin t = fix_lin (false, t)
+let auto_lin t = (linear t, t)
 
 let infer_type types lin_types operators =
   let rec aux env ee =
@@ -157,21 +158,22 @@ let infer_type types lin_types operators =
               if not @@ IntEnv.mem x lin then
                 failwith (Format.sprintf "Variable `%d` not found or non-linear" x) ee)
               ro;
-          let env_r_o = List.fold_right (fun x -> IntEnv.add x (nonlinear @@ IntEnv.find x lin))
+          let env_ro = List.fold_right (fun x -> IntEnv.add x (nonlinear @@ IntEnv.find x lin))
             ro IntEnv.empty in
-          let (t, used) = aux (env ++ env_r_o) e in
+          let (t, used) = aux (env ++ env_ro) e in
           let env_p = check_pattern p t in
           let (t1, used1) = aux (env ++ env_p) e1 in
-          let not_used = (env_r_o ++ lin_env env_p) -- used1 in
+          let not_used = (env_ro ++ lin_env env_p) -- used1 in
           assert_all_used ee not_used;
-          (t1, disjoint_union ee used used1 -- env_p)
+          assert_safe ee ro t;
+          (t1, disjoint_union ee used (used1 -- env_p))
       | ELet (p, e, e1) ->
           let (t, used) = aux env e in
           let env_p = check_pattern p t in
           let (t1, used1) = aux (env ++ env_p) e1 in
           let not_used = lin_env env_p -- used1 in
           assert_all_used ee not_used;
-          (t1, disjoint_union ee used used1)
+          (t1, disjoint_union ee used (used1 -- env_p))
       | ECase (e, l) ->
           let (t, used) = aux env e in
           let match_item (p, e1) =
@@ -184,8 +186,10 @@ let infer_type types lin_types operators =
           let (t1, used1) = l |> List.map match_item |> List.split in
           (unify_all ee t1, disjoint_union ee used (same_used ee used1))
       | EIf (e, e1, e2) ->
-          let [(t, used); (t1, used1); (t2, used2)] = List.map (aux env) [e; e1; e2] in
-          (unify_all ee [t1; t2], disjoint_union ee used (same_used ee [used1; used2]))
+          let (t, used) = aux env e in
+          let (t1, used1) = [e1; e2] |> List.map (aux env) |> List.split in
+          ignore (unify_all ee [t; (false, TPrim "bool")]);
+          (unify_all ee t1, disjoint_union ee used (same_used ee used1))
       | EOp (op, a, b) ->
           let (ta, tb, tr) = operators op in
           let it, used = aux_list env ee [a; b] in
@@ -202,11 +206,18 @@ let infer_type types lin_types operators =
       | EArray l ->
           let (t, used) = aux_list env ee l in
           (auto_lin @@ TArray (unify_all ee t), used)
-      | _ -> ((false, TTuple []), IntEnv.empty)
+      | EEmptyList -> ((false, TList (false, TVar "a")), IntEnv.empty)
+      | EString x -> ((false, TPrim "string"), IntEnv.empty)
+      | EInt x -> ((false, TPrim "int"), IntEnv.empty)
+      | EVar x -> 
+          let (l, t) = IntEnv.find x env in
+          ((l, t), if l then IntEnv.singleton x (l, t) else IntEnv.empty)
+
   and aux_list env ee el =
     el 
     |> fold_map (fun used e ->
       let (t, used1) = aux env e in
       (disjoint_union ee used used1, t)) IntEnv.empty
     |> swap_pair
-  in aux IntEnv.empty
+    
+  in fst << aux IntEnv.empty

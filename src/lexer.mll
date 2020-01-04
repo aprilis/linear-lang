@@ -18,6 +18,7 @@ rule read =
   | int {INT (int_of_string (Lexing.lexeme lexbuf))}
   | '"' { read_string (Buffer.create 16) lexbuf }
   | "type" {TYPE}
+  | "forall" {FORALL}
   | "fun" {FUN}
   | "->" {ARROW}
   | "-o" {LIN_ARROW}
@@ -29,6 +30,19 @@ rule read =
   | "else" {ELSE}
   | "case" {CASE}
   | "of" {OF}
+  | "+" {PLUS}
+  | "-" {MINUS}
+  | "*" {MULT}
+  | "/" {DIV}
+  | ">=" {GEQ}
+  | "<=" {LEQ}
+  | ">" {GT}
+  | "<" {LT}
+  | "==" {EQ}
+  | "!=" {NEQ}
+  | "&&" {AND}
+  | "||" {OR}
+  | "::" {CONS}
   | ":" {COLON}
   | "." {DOT}
   | "?" {QUEST}
@@ -43,12 +57,6 @@ rule read =
   | "]" {RBRACKET}
   | "{" {LBRACE}
   | "}" {RBRACE}
-  | "+" {PLUS}
-  | "-" {MINUS}
-  | "*" {MULT}
-  | "&&" {AND}
-  | "||" {OR}
-  | "::" {CONS}
   | "_" {WILD}
   | varid {VAR_ID (Lexing.lexeme lexbuf)}
   | constrid {CONSTR_ID (Lexing.lexeme lexbuf)}
