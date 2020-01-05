@@ -101,7 +101,7 @@ typ_:
   | LPAR; t = typ; RPAR                                     {t}
   | LPAR; items = separated_list(COMMA, typ); RPAR          {Types.TTuple (items)}
   | LBRACKET; x = typ; RBRACKET                             {Types.TList (x)}
-  | LARRAY; x = typ; RARRAY                                 {Types.TArray (x)}
+  | lin = boption(EXCL); LARRAY; x = typ; RARRAY            {Types.TArray (lin, x)}
 
 var_typ: v = type_var_list; t = typ {
   t |> Types.map (fun t ->

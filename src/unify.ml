@@ -22,13 +22,13 @@ let unify_var_t a b =
     if t1 = t2 then t1 else
     match (t1, t2) with
       | TFunc (l1, a1, b1), TFunc (l2, a2, b2) ->
-          TFunc (both l1 l2, aux used a1 b1, aux used a2 b2)
+          TFunc (both l1 l2, aux used a1 a2, aux used b1 b2)
       | TTuple tl1, TTuple tl2 when List.length tl1 = List.length tl2 ->
           TTuple (List.map2 (aux used) tl1 tl2)
       | TList tl1, TList tl2 ->
           TList (aux used tl1 tl2)
-      | TArray tl1, TArray tl2 ->
-          TArray (aux used tl1 tl2)
+      | TArray (l1, tl1), TArray (l2, tl2) ->
+          TArray (both l1 l2, aux used tl1 tl2)
       | TVar (_, x), _ when VarSet.mem x used ->
           failwith "Circular type dependency"
       | _, TVar (_, x) when VarSet.mem x used ->
@@ -64,5 +64,5 @@ let unify_and_infer a b c =
   let a = List.map (map_var (fun x -> (0, x))) a
   and b = List.mapi (fun i -> map_var (fun x -> (i + 1, x))) b
   and c = map_var (fun x -> (0, x)) c in
-  let (TTuple l) = unify_var_t (TTuple (c::a)) (TTuple (c::b))
-  in List.hd l
+  let (TTuple l) = unify_var_t (TTuple (c::a)) (TTuple (c::b)) in
+  List.hd l

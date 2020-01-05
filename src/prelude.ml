@@ -17,14 +17,21 @@ let operator_types_assoc = [
   ([OCons], cons)
 ]
 
-let operator_types op =
-  snd @@ List.find (List.mem op << fst) operator_types_assoc
-
 let type_defs = List.map (Parse.parse_text Parser.type_def_eof) [
   "type bool = True | False";
 ]
 
 let other_types = ["int"; "string"; "void"]
+
+let vars = [
+  ("fix", "forall ?a . (a -> a) -> a");
+  ("len", "forall ?a . [|a|] -> int");
+  ("elem", "forall ?a . [|a|] -> int -> a");
+  ("update", "forall ?a . ![|a|] -> int -> a -> ![|a|]");
+] |> List.to_seq |> StrEnv.of_seq |> StrEnv.map parse_type
+
+let operator_types op =
+  snd @@ List.find (List.mem op << fst) operator_types_assoc
 
 let valid_types = other_types
   |> List.map (fun x -> (x, false)) 
@@ -33,7 +40,7 @@ let valid_types = other_types
 
 let statics_env = {
   Statics.ops = operator_types;
-  Statics.vars = StrEnv.empty;
+  Statics.vars = vars;
   Statics.types = StrEnv.empty;
   Statics.lintypes = StrEnv.empty;
   Statics.valid_types = valid_types;

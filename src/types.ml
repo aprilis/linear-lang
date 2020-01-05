@@ -6,7 +6,7 @@ type 'a typ =
   | TFunc of linearity * 'a typ * 'a typ 
   | TTuple of 'a typ list        
   | TList of 'a typ 
-  | TArray of 'a typ
+  | TArray of linearity * 'a typ
 
 type prim_type = (string * string typ option) list
 type type_def = TypeDef of linearity * string * prim_type
@@ -46,7 +46,7 @@ let rec is_linear = function
   | TVar (_, _) -> false
   | TTuple l -> List.exists is_linear l
   | TList l -> is_linear l
-  | TArray _ -> true
+  | TArray (l, _) -> l
 
 let rec map f t =
   match t with
@@ -55,7 +55,7 @@ let rec map f t =
     | TFunc (l, a, b) -> f @@ TFunc (l, map f a, map f b)
     | TTuple l -> f @@ TTuple (List.map (map f) l)
     | TList l -> f @@ TList (map f l)
-    | TArray l -> f @@ TArray (map f l)
+    | TArray (l, a) -> f @@ TArray (l, map f a)
 
 let rec map_var f t =
   match t with
@@ -64,7 +64,7 @@ let rec map_var f t =
     | TFunc (l, a, b) -> TFunc (l, map_var f a, map_var f b)
     | TTuple l -> TTuple (List.map (map_var f) l)
     | TList l -> TList (map_var f l)
-    | TArray l -> TArray (map_var f l)
+    | TArray (l, a) -> TArray (l, map_var f a)
 
 let rec fold f t a =
   let a = f t a in
@@ -72,7 +72,7 @@ let rec fold f t a =
     | TFunc (_, x, y) -> a |> fold f x |> fold f y
     | TTuple l -> List.fold_right (fold f) l a
     | TList l
-    | TArray l -> fold f l a
+    | TArray (_, l) -> fold f l a
     | _ -> a
 
 let nonlinear t = map (function

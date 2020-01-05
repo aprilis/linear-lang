@@ -216,9 +216,9 @@ let infer_type env =
         | ETuple l ->
             let (t, used) = aux_list env l in
             (TTuple t, used)
-        | EArray l ->
-            let (t, used) = aux_list env l in
-            (TArray (unify_all t), used)
+        | EArray a ->
+            let (t, used) = aux_list env a in
+            (TArray (true, unify_all t), used)
         | EEmptyList -> (TList (TVar (true, "a")), StrEnv.empty)
         | EString x -> (TPrim (false, "string"), StrEnv.empty)
         | EInt x -> (TPrim (false, "int"), StrEnv.empty)

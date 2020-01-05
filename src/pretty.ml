@@ -29,7 +29,7 @@ let print_typ ppf t =
   let rec aux rarrow ppf t =
     open_hovbox 1;
     begin match t with
-      | TArray s -> fprintf ppf "[|%a|]" (aux false) s
+      | TArray (l, s) -> fprintf ppf "%a[|%a|]" print_lin l (aux false) s
       | TFunc (l, x, y) -> 
           lpar ppf rarrow;
           fprintf ppf "%a@ %a@ %a" (aux true) x print_arrow l (aux false) y;
