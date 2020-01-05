@@ -1,22 +1,26 @@
-open Parsing
-open Lexing
+let symbol = Parser.prog_eof
 
-let parse lexbuf =
-  try Parser.prog Lexer.read lexbuf
-  with Parser.Error -> failwith "Syntax error"
+let go prog =
+  let (td, e) = prog in
+  let env = List.fold_right Type_def.add_type_def td Prelude.statics_env in
+  let t = Statics.infer_type env e in
+  Pretty.print_expr Format.std_formatter e;
+  Pretty.print_type Format.std_formatter t
 
-let rec main () =
+let rec repl () =
   begin
-    let text = read_line ()
-    in let lexbuf = Lexing.from_string text
-    in try
-        let (td, e) = Parser.prog Lexer.read lexbuf
-        in let t = Statics.infer_type Prelude.statics_env e
-        in Pretty.print_expr Format.std_formatter e;
-           Pretty.print_type Format.std_formatter t
-          
-      with Parser.Error -> print_endline "Syntax error"
+    let text = read_line () in
+    try
+      go @@ Parse.parse_text symbol text
+    with Parser.Error -> print_endline "Syntax error"
   end;
-  main()
+  repl()
 
-let () = main ()
+let parse_file fname =
+  go @@ Parse.parse_file symbol fname
+
+let () =
+  match Array.length Sys.argv with
+    | 1 -> repl ()
+    | 2 -> parse_file Sys.argv.(1)
+    | _ -> failwith "Invalid number of arguments"

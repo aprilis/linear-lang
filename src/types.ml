@@ -1,14 +1,12 @@
 type linearity = bool
 
-type 'a styp = 
-  | TPrim of string 
-  | TVar of 'a 
-  | TNonLinVar of 'a 
-  | TFunc of 'a typ * 'a typ 
+type 'a typ = 
+  | TPrim of linearity * string 
+  | TVar of linearity * 'a 
+  | TFunc of linearity * 'a typ * 'a typ 
   | TTuple of 'a typ list        
   | TList of 'a typ 
   | TArray of 'a typ
-and 'a typ = linearity * 'a styp
 
 type prim_type = (string * string typ option) list
 type type_def = TypeDef of linearity * string * prim_type
@@ -42,42 +40,43 @@ type expr =
 
 type prog = type_def list * expr
 
-let linear = function
-  | TPrim _
-  | TVar _
-  | TNonLinVar _
-  | TFunc _ -> false
-  | TTuple l -> List.exists fst l
-  | TList (l, _) -> l
-  | TArray (l, _) -> l
+let rec is_linear = function
+  | TPrim (l, _)
+  | TFunc (l, _, _) -> l
+  | TVar (_, _) -> false
+  | TTuple l -> List.exists is_linear l
+  | TList l -> is_linear l
+  | TArray _ -> true
 
-let rec map f (l, t) =
-  let t = match t with
-    | TPrim s -> TPrim s
-    | TVar x -> TVar x
-    | TNonLinVar x -> TNonLinVar x
-    | TFunc (a, b) -> TFunc (map f a, map f b)
-    | TTuple l -> TTuple (List.map (map f) l)
-    | TList l -> TList (map f l)
-    | TArray l -> TArray (map f l)
-  in f (l, t)
+let rec map f t =
+  match t with
+    | TPrim (_, _)
+    | TVar (_, _) -> f t
+    | TFunc (l, a, b) -> f @@ TFunc (l, map f a, map f b)
+    | TTuple l -> f @@ TTuple (List.map (map f) l)
+    | TList l -> f @@ TList (map f l)
+    | TArray l -> f @@ TArray (map f l)
 
-let rec map_var f (l, t) =
-  (l, match t with
-    | TPrim s -> TPrim s
-    | TVar x -> TVar (f x)
-    | TNonLinVar x -> TNonLinVar (f x)
-    | TFunc (a, b) -> TFunc (map_var f a, map_var f b)
+let rec map_var f t =
+  match t with
+    | TPrim (l, s) -> TPrim (l, s)
+    | TVar (l, x) -> TVar (l, f x)
+    | TFunc (l, a, b) -> TFunc (l, map_var f a, map_var f b)
     | TTuple l -> TTuple (List.map (map_var f) l)
     | TList l -> TList (map_var f l)
     | TArray l -> TArray (map_var f l)
-  )
 
-let rec fold f (l, t) a =
-  let a = f (l, t) a in
+let rec fold f t a =
+  let a = f t a in
   match t with
-    | TFunc (x, y) -> a |> fold f x |> fold f y
+    | TFunc (_, x, y) -> a |> fold f x |> fold f y
     | TTuple l -> List.fold_right (fold f) l a
     | TList l
     | TArray l -> fold f l a
     | _ -> a
+
+let nonlinear t = map (function
+  | TPrim (true, s) -> TPrim (false, s)
+  | TFunc (true, _, _) -> TPrim (false, "void")
+  | t -> t
+) t

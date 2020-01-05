@@ -16,36 +16,28 @@ let print_list f ppf l =
     | [] -> ()
 
 let print_lin ppf l = if l then print_str ppf "!"
+let print_arrow ppf l = print_str ppf (if l then "-o" else "->")
 
 let print_typ ppf t = 
   open_hovbox 1;
   let vars = Types.fold List.cons t []
     |> Util.filter_map (function 
-      | _, TVar x -> Some ("?" ^ x) 
-      | _, TNonLinVar x -> Some x 
+      | TVar (l, x) -> Some ((if l then "?" else "") ^ x) 
       | _ -> None)
     |> List.sort_uniq compare in
   if vars <> [] then fprintf ppf "forall %a@ . " (print_list print_str) vars;
   let rec aux rarrow ppf t =
     open_hovbox 1;
     begin match t with
-    | true, TFunc (x, y) ->
-        lpar ppf rarrow;
-        fprintf ppf "%a -o %a" (aux true) x (aux false) y;
-        rpar ppf rarrow
-    | lin, tt ->
-      print_lin ppf lin;
-      match tt with
-        | TArray s -> fprintf ppf "[|%a|]" (aux false) s
-        | TFunc (x, y) -> 
-            lpar ppf rarrow;
-            fprintf ppf "%a@ ->@ %a" (aux true) x (aux false) y;
-            rpar ppf rarrow
-        | TList s -> fprintf ppf "[%a]" (aux false) s
-        | TPrim s
-        | TVar s
-        | TNonLinVar s -> print_str ppf s
-        | TTuple l -> fprintf ppf "(%a)" (print_list (aux false)) l
+      | TArray s -> fprintf ppf "[|%a|]" (aux false) s
+      | TFunc (l, x, y) -> 
+          lpar ppf rarrow;
+          fprintf ppf "%a@ %a@ %a" (aux true) x print_arrow l (aux false) y;
+          rpar ppf rarrow
+      | TList s -> fprintf ppf "[%a]" (aux false) s
+      | TPrim (l, s) -> fprintf ppf "%a%s" print_lin l s
+      | TVar (_, s) -> print_str ppf s
+      | TTuple l -> fprintf ppf "(%a)" (print_list (aux false)) l
     end;
     close_box ()
   in aux false ppf t;

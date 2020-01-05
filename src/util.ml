@@ -1,3 +1,7 @@
+type 'a str_env = 'a Map.Make(String).t
+
+let (=>) a b = not a || b
+
 let (<<) a b x = a (b x)
 let (>>) a b x = b (a x)
 
@@ -6,6 +10,15 @@ let rec filter_map f = function
   | h::t ->
     let t = filter_map f t in
     match f h with None -> t | Some h -> h::t
+
+
+let rec fold_map f a l =
+  match l with
+    | [] -> (a, [])
+    | h::t -> 
+        let (a, t) = fold_map f a t
+        in let (a, h) = f a h
+        in (a, h::t)
 
 let string_of_chars chars = 
   let buf = Buffer.create 1 in
@@ -27,5 +40,10 @@ let names =
   let Seq.Cons(_, t) = names_list () in
   t |> Seq.map List.rev |> Seq.map string_of_chars
 
-let invert_mapping tbl =
-  tbl |> Hashtbl.to_seq |> Seq.map (fun (a, b) -> (b, a)) |> Hashtbl.of_seq
+module StrEnv = Map.Make(String)
+let (++) a b = StrEnv.union (fun _ _ x -> Some x) a b
+let (--) a b = StrEnv.filter (fun k _ -> not (StrEnv.mem k b)) a
+
+let const x _ = x
+let negate f = not << f
+let id x = x

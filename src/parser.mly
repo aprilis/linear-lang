@@ -20,11 +20,15 @@
 %left MULT
 %right ARROW LIN_ARROW
 
-%start <Types.prog> prog
+%start <Types.prog> prog_eof
+%start <string Types.typ> type_eof
+%start <Types.type_def> type_def_eof
 
 %%
 
-prog: types = type_def*; e = expr; EOF {(types, e)}
+prog_eof: types = type_def*; e = expr; EOF  {(types, e)}
+type_eof: t = var_typ; EOF                  {t}
+type_def_eof: t = type_def; EOF             {t}
 
 expr:
   | FUN; LPAR; x = pat; COLON; t = var_typ; RPAR; lin = arrow; e = expr       
@@ -89,26 +93,23 @@ pat:
   | lin = boption(EXCL); constr = CONSTR_ID; p = pat?       {Types.PConstr (lin, constr, p)}
 
 typ:
-  | x = typ; lin = arrow; y = typ                           {(lin, Types.TFunc (x, y))}
+  | x = typ; lin = arrow; y = typ                           {Types.TFunc (lin, x, y)}
   | t = typ_                                                {t}
 
 typ_:
-  | EXCL; t = typ_                                          {let (_, tt) = t in (true, tt)}
-  | x = id                                                  {(false, Types.TPrim (x))}
+  | lin = boption(EXCL); x = id                             {Types.TPrim (lin, x)}
   | LPAR; t = typ; RPAR                                     {t}
-  | LPAR; items = separated_list(COMMA, typ); RPAR          {(false, Types.TTuple (items))}
-  | LBRACKET; x = typ; RBRACKET                             {(false, Types.TList (x))}
-  | LARRAY; x = typ; RARRAY                                 {(false, Types.TArray (x))}
+  | LPAR; items = separated_list(COMMA, typ); RPAR          {Types.TTuple (items)}
+  | LBRACKET; x = typ; RBRACKET                             {Types.TList (x)}
+  | LARRAY; x = typ; RARRAY                                 {Types.TArray (x)}
 
 var_typ: v = type_var_list; t = typ {
-  Types.map (fun (l, t) ->
-    (l, match t with
-      | Types.TPrim x when List.mem (true, x) v ->
-          Types.TVar x
-      | Types.TPrim x when List.mem (false, x) v ->
-          Types.TNonLinVar x
+  t |> Types.map (fun t ->
+    match t with
+      | Types.TPrim (t, x) when List.mem_assoc x v ->
+        if t then failwith @@ "Cannot use variable type with exclamation: !" ^ x
+        else Types.TVar (List.assoc x v, x)
       | _ -> t)
-  ) t
 }
 
 type_var_list:
@@ -116,14 +117,14 @@ type_var_list:
   | FORALL; v = separated_nonempty_list(COMMA, type_var); DOT {v}
 
 type_var:
-  | QUEST; x = id  {(true, x)}
-  | x = id         {(false, x)}
+  | QUEST; x = id  {(x, true)}
+  | x = id         {(x, false)}
 
 match_item: p = pat; ARROW; e = expr                             {(p, e)}
 
-type_def: TYPE; lin = boption(EXCL); x = id; BE; items = separated_list(BAR, type_option)
+type_def: TYPE; lin = boption(EXCL); x = id; BE; items = separated_nonempty_list(BAR, type_option)
                                                             {Types.TypeDef (lin, x, items)}
-type_option: x = id; t = preceded(COLON, typ)?              {(x, t)}
+type_option: x = CONSTR_ID; t = preceded(OF, typ)?            {(x, t)}
 
 id:
   | x = VAR_ID    {x}
