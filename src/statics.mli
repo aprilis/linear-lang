@@ -2,7 +2,6 @@ open Util
 open Types
 
 exception RepeatedVariable of string * pattern
-exception UnboundVariable of string
 exception TypeError of string * expr
 
 type op_env = operator -> string typ

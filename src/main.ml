@@ -1,11 +1,14 @@
 let symbol = Parser.prog_eof
 
 let go prog =
-  let (td, e) = prog in
-  let env = List.fold_right Type_def.add_type_def td Prelude.statics_env in
-  let t = Statics.infer_type env e in
-  Pretty.print_expr Format.std_formatter e;
-  Pretty.print_type Format.std_formatter t
+  try
+    let (td, e) = prog in
+    let env = List.fold_right Type_def.add_type_def td Prelude.statics_env in
+    let t = Statics.infer_type env e in
+    Pretty.print_expr Format.std_formatter e;
+    Pretty.print_type Format.std_formatter t
+  with Statics.TypeError (msg, e) ->
+    Format.fprintf Format.std_formatter "Type error: %s\nin expression %a" msg Pretty.print_expr e
 
 let rec repl () =
   begin

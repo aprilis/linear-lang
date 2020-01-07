@@ -8,16 +8,18 @@
 %token IF THEN ELSE
 %token CASE OF
 %token DOT QUEST
-%token COLON COMMA BAR EXCL
+%token SEMICOLON COLON COMMA BAR EXCL
 %token LPAR RPAR LARRAY RARRAY LBRACKET RBRACKET LBRACE RBRACE
 %token PLUS MINUS MULT DIV GT LT GEQ LEQ EQ NEQ AND OR CONS
 %token WILD
 %token EOF
 
+%right SEMICOLON
 %right CONS
 %left AND OR
+%left GT LT GEQ LEQ EQ NEQ
 %left PLUS MINUS
-%left MULT
+%left MULT DIV
 %right ARROW LIN_ARROW
 
 %start <Types.prog> prog_eof
@@ -77,6 +79,7 @@ braced_list: LBRACE; l = separated_list(COMMA, id); RBRACE {l}
   | AND     {Types.OAnd}
   | OR      {Types.OOr}
   | CONS    {Types.OCons}
+  | SEMICOLON   {Types.OSemicolon}
 
 arrow:
   | ARROW     {false}

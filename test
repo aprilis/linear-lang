@@ -1,1 +1,0 @@
-fun ((x, y, z) : forall ?a . (a, a, bool)) -> if z then (x, y) else (y, x)

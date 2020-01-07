@@ -9,12 +9,14 @@ let math = parse_type "(int, int) -> int"
 let comp = parse_type "(int, int) -> bool"
 let logic = parse_type "(bool, bool) -> bool"
 let cons = parse_type "forall ?a . (a, [a]) -> [a]"
+let semicolon = parse_type "forall ?a . ((), a) -> a"
 
 let operator_types_assoc = [
   ([OPlus; OMinus; OMult; ODiv], math);
   ([OGt; OLt; OGeq; OLeq; OEq; ONeq], comp);
   ([OOr; OAnd], logic);
-  ([OCons], cons)
+  ([OCons], cons);
+  ([OSemicolon], semicolon);
 ]
 
 let type_defs = List.map (Parse.parse_text Parser.type_def_eof) [
@@ -26,8 +28,11 @@ let other_types = ["int"; "string"; "void"]
 let vars = [
   ("fix", "forall ?a . (a -> a) -> a");
   ("len", "forall ?a . [|a|] -> int");
-  ("elem", "forall ?a . [|a|] -> int -> a");
-  ("update", "forall ?a . ![|a|] -> int -> a -> ![|a|]");
+  ("arr_from_elem", "forall a . int -> a -> ![|a|]");
+  ("arr_from_list", "forall ?a . [a] -> ![|a|]");
+  ("lookup", "forall ?a . int -> [|a|] -> a");
+  ("update", "forall ?a . int -> a -> ![|a|] ->  ![|a|]");
+  ("drop", "forall ?a . a -> ()");
 ] |> List.to_seq |> StrEnv.of_seq |> StrEnv.map parse_type
 
 let operator_types op =

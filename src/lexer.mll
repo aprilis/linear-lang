@@ -43,6 +43,7 @@ rule read =
   | "&&" {AND}
   | "||" {OR}
   | "::" {CONS}
+  | ";" {SEMICOLON}
   | ":" {COLON}
   | "." {DOT}
   | "?" {QUEST}

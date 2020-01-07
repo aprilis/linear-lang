@@ -3,7 +3,6 @@ open Util
 module StrEnv = Map.Make(String)
 
 exception RepeatedVariable of string * pattern
-exception UnboundVariable of string
 exception TypeError of string * expr
 
 exception TypeError_ of string
@@ -113,8 +112,8 @@ let same_used (h::t) =
   if List.for_all (eq h) t then h
   else failwith "Inconsistent linear variables usage"
 
-let arg_to_body_type = map (function
-  | TVar (l, x) -> TPrim (l, x)
+let arg_to_body_type vars = map (function
+  | TVar (l, x) -> TPrim (l, StrEnv.find x vars)
   | x -> x)
 
 let body_to_res_type vars =
@@ -126,20 +125,27 @@ let body_to_res_type vars =
 
 let type_vars fresh_types t =
   let renamed, lin = fold List.cons t [] |> filter_map (function 
-    | TVar (l, x) -> 
-        let fresh = Stream.next fresh_types in
-        Some ((x, fresh), (fresh, l))
-    | _ -> None) |> List.split
+    | TVar (l, x) -> Some (l, x)
+    | _ -> None) 
+  |> List.sort_uniq compare
+  |> List.map (fun (l, x) ->
+      let fresh = Stream.next fresh_types in
+      ((x, fresh), (fresh, l)))
+  |> List.split
   in (renamed |> List.to_seq |> StrEnv.of_seq, lin |> List.to_seq |> StrEnv.of_seq)
-    
-let translate_types env =
+
+let assert_valid_types env =
   let is_invalid l1 = function
     | Some l2 when l1 => l2 -> false
     | _ -> true
     in
   map (function
     | TPrim (l, x) when is_invalid l (StrEnv.find_opt x env.valid_types) ->
-        failwith (Format.asprintf "Unknown type %a" Pretty.print_type (TPrim (l, x)))
+          failwith (Format.asprintf "Unknown type %a" Pretty.print_type (TPrim (l, x)))
+    | t -> t) >> ignore
+
+let translate_types env =
+  map (function
     | TPrim (l, x) when StrEnv.mem x env.type_vars ->
         TPrim (l, StrEnv.find x env.type_vars)
     | t -> t)
@@ -153,11 +159,13 @@ let infer_type env =
       let venv = env.vars in
       match ee with
         | EFun (lin, p, t, e) ->
+            let t = translate_types env t in
             let vars, vars_lin = type_vars fresh_types t in
+            let bt = arg_to_body_type vars t in
             let env = { env with 
-              type_vars = vars ++ env.type_vars;
-              valid_types = vars_lin ++ env.valid_types } in
-            let bt = t |> arg_to_body_type |> translate_types env in
+              type_vars = env.type_vars ++ vars;
+              valid_types = env.valid_types ++ vars_lin } in
+            assert_valid_types env bt;
             let venv_p = check_pattern env p bt in
             let venv1 = if lin then venv else non_lin_env venv in
             let (t1, used) = aux { env with vars = venv1 ++ venv_p } e in
@@ -225,7 +233,7 @@ let infer_type env =
         | EVar x -> 
             match StrEnv.find_opt x venv with
               | Some t -> (t, if is_linear t then StrEnv.singleton x t else StrEnv.empty)
-              | None -> raise @@ UnboundVariable x
+              | None -> failwith ("Unbound variable " ^ x)
       with TypeError_ msg -> raise @@ TypeError (msg, ee)
 
   and aux_list env el =

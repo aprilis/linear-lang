@@ -21,7 +21,7 @@ type pattern =
 
 type operator = OPlus | OMinus | OMult | ODiv
               | OGt | OLt | OGeq | OLeq | OEq | ONeq 
-              | OAnd | OOr | OCons
+              | OAnd | OOr | OCons | OSemicolon
 
 type expr = 
   | EFun of linearity * pattern * string typ * expr 
@@ -78,5 +78,6 @@ let rec fold f t a =
 let nonlinear t = map (function
   | TPrim (true, s) -> TPrim (false, s)
   | TFunc (true, _, _) -> TPrim (false, "void")
+  | TArray (true, t) -> TArray (false, t)
   | t -> t
 ) t

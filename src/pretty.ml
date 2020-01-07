@@ -59,6 +59,7 @@ let op_str op =
     | ONeq -> "!="
     | OOr -> "||"
     | OPlus -> "+"
+    | OSemicolon -> ";"
 
 let rec print_pat ppf p =
   match p with
