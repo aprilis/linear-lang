@@ -25,6 +25,6 @@ let add_type name pt env = { env with
 
 let nonlinear_pt = List.map (fun (a, b) -> (a, Option.map nonlinear b))
 
-let add_type_def (TypeDef (l, n, pt)) =
+let add_to_statics (TypeDef (l, n, pt)) =
   if l then add_lin_type n pt << add_type n (nonlinear_pt pt) 
   else add_type n pt

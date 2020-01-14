@@ -11,7 +11,7 @@ type env = {
   types: prim_type str_env;
   lintypes: prim_type str_env;
   valid_types: linearity str_env;
-  type_vars: string str_env;
+  type_vars: (string * var_linearity) str_env;
 }
 
 val infer_type: env -> expr -> string typ

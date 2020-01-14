@@ -39,7 +39,7 @@ let unify_var_t a b =
           match Hashtbl.find_opt mapping x with
             | Some t -> aux (VarSet.add x used) t t2
             | None ->
-              if is_linear t2 => l then
+              if is_linear t2 => accepts_linear l then
                 (Hashtbl.add mapping x t2; t2)
               else failwith "Linearity mismatch"
         end

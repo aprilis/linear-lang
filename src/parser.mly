@@ -33,8 +33,8 @@ type_eof: t = var_typ; EOF                  {t}
 type_def_eof: t = type_def; EOF             {t}
 
 expr:
-  | FUN; LPAR; x = pat; COLON; t = var_typ; RPAR; lin = arrow; e = expr       
-                                                            {Types.EFun (lin, x, t, e)}
+  | FUN; v = type_var_list; LPAR; x = pat; COLON; t = typ; RPAR; lin = arrow; e = expr       
+                                                            {Types.EFun (lin, v, x, t, e)}
   | LET; ylist = braced_list; x = pat; BE; e1 = expr; IN; e2 = expr 
                                                             {Types.EROLet (ylist, x, e1, e2)}
   | LET; x = pat; BE; e1 = expr; IN; e2 = expr              {Types.ELet (x, e1, e2)}
@@ -110,18 +110,19 @@ var_typ: v = type_var_list; t = typ {
   t |> Types.map (fun t ->
     match t with
       | Types.TPrim (t, x) when List.mem_assoc x v ->
-        if t then failwith @@ "Cannot use variable type with exclamation: !" ^ x
-        else Types.TVar (List.assoc x v, x)
+        Types.TVar ((if t then List.assoc x v else NonLin), x)
       | _ -> t)
 }
 
 type_var_list:
   | {[]}
-  | FORALL; v = separated_nonempty_list(COMMA, type_var); DOT {v}
+  | LT; v = separated_nonempty_list(COMMA, type_var); GT {v}
 
-type_var:
-  | QUEST; x = id  {(x, true)}
-  | x = id         {(x, false)}
+type_var: l = var_linearity; x = id  {(x, l)}
+var_linearity:
+  | {Types.NonLin}
+  | EXCL {Types.Lin}
+  | QUEST {Types.AnyLin}
 
 match_item: p = pat; ARROW; e = expr                             {(p, e)}
 

@@ -47,3 +47,5 @@ let (--) a b = StrEnv.filter (fun k _ -> not (StrEnv.mem k b)) a
 let const x _ = x
 let negate f = not << f
 let id x = x
+
+let flip f a b = f b a

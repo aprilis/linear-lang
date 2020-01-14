@@ -1,8 +1,11 @@
+open Util
+
 type linearity = bool
+type var_linearity = Lin | NonLin | AnyLin
 
 type 'a typ = 
   | TPrim of linearity * string 
-  | TVar of linearity * 'a 
+  | TVar of var_linearity * 'a 
   | TFunc of linearity * 'a typ * 'a typ 
   | TTuple of 'a typ list        
   | TList of 'a typ 
@@ -24,7 +27,7 @@ type operator = OPlus | OMinus | OMult | ODiv
               | OAnd | OOr | OCons | OSemicolon
 
 type expr = 
-  | EFun of linearity * pattern * string typ * expr 
+  | EFun of linearity * (string * var_linearity) list * pattern * string typ * expr 
   | EROLet of string list * pattern * expr * expr 
   | ELet of pattern * expr * expr 
   | ECase of expr * (pattern * expr) list 
@@ -43,10 +46,12 @@ type prog = type_def list * expr
 let rec is_linear = function
   | TPrim (l, _)
   | TFunc (l, _, _) -> l
-  | TVar (_, _) -> false
+  | TVar (l, _) -> l == Lin
   | TTuple l -> List.exists is_linear l
   | TList l -> is_linear l
   | TArray (l, _) -> l
+
+let accepts_linear l = l <> NonLin
 
 let rec map f t =
   match t with
@@ -81,3 +86,15 @@ let nonlinear t = map (function
   | TArray (true, t) -> TArray (false, t)
   | t -> t
 ) t
+
+let type_var_list t =
+  let rec unique_sorted = function
+    | (h1, _)::(h2, x)::t when h1 = h2 -> unique_sorted ((h2, x)::t)
+    | h::t -> h :: unique_sorted t
+    | [] -> []
+    in
+  fold List.cons t []
+  |> Util.filter_map (function 
+    | TVar (l, x) -> Some (x, l)
+    | _ -> None)
+  |> List.sort compare |> unique_sorted

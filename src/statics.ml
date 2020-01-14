@@ -15,7 +15,7 @@ type env = {
   types: prim_type str_env;
   lintypes: prim_type str_env;
   valid_types: linearity str_env;
-  type_vars: string str_env;
+  type_vars: (string * var_linearity) str_env;
 }
 
 let non_lin_env = StrEnv.filter (const (negate is_linear))
@@ -98,7 +98,7 @@ let print_type ppf t =
   Pretty.print_type ppf (map_var f t)
 
 let unify_all l =
-  try List.fold_right Unify.unify l (TVar (true, "a")) with
+  try List.fold_right Unify.unify l (TVar (AnyLin, "a")) with
     Unify.Error (msg, t1, t2) ->
       failwith (Format.asprintf "Cannot unify types %a and %a: %s" print_type t1 print_type t2 msg)
 
@@ -112,25 +112,24 @@ let same_used (h::t) =
   if List.for_all (eq h) t then h
   else failwith "Inconsistent linear variables usage"
 
-let arg_to_body_type vars = map (function
-  | TVar (l, x) -> TPrim (l, StrEnv.find x vars)
-  | x -> x)
-
 let body_to_res_type vars =
-  let to_vars = vars |> StrEnv.to_seq |> Seq.map (fun (a, b) -> (b, a)) |> StrEnv.of_seq in
+  let to_vars = vars 
+    |> StrEnv.to_seq 
+    |> Seq.map (fun (a, (b, l)) -> (b, (a, l))) 
+    |> StrEnv.of_seq in
   map (function
     | TPrim (l, x) when StrEnv.mem x to_vars -> 
-        TVar (l, StrEnv.find x to_vars)
+        let (y, l1) = StrEnv.find x to_vars in
+        TVar ((if l then l1 else NonLin), y)
     | x -> x)
 
-let type_vars fresh_types t =
-  let renamed, lin = fold List.cons t [] |> filter_map (function 
-    | TVar (l, x) -> Some (l, x)
-    | _ -> None) 
-  |> List.sort_uniq compare
-  |> List.map (fun (l, x) ->
+let type_vars fresh_types tv =
+  let renamed, lin = 
+  tv
+  |> List.map (fun (x, l) ->
       let fresh = Stream.next fresh_types in
-      ((x, fresh), (fresh, l)))
+      ((x, (fresh, l)), (fresh, accepts_linear l))
+      )
   |> List.split
   in (renamed |> List.to_seq |> StrEnv.of_seq, lin |> List.to_seq |> StrEnv.of_seq)
 
@@ -147,7 +146,13 @@ let assert_valid_types env =
 let translate_types env =
   map (function
     | TPrim (l, x) when StrEnv.mem x env.type_vars ->
-        TPrim (l, StrEnv.find x env.type_vars)
+        let (y, l1) = StrEnv.find x env.type_vars in
+        begin match l, l1 with
+          | false, AnyLin
+          | true, NonLin -> failwith ("Invalid linearity of type variable "
+                                   ^ (if l then "!" else "") ^ x)
+          | _ -> TPrim (l, y)
+        end
     | t -> t)
 
 let infer_type env =
@@ -157,19 +162,20 @@ let infer_type env =
   let rec aux env ee =
     try
       let venv = env.vars in
+      let res =
       match ee with
-        | EFun (lin, p, t, e) ->
-            let t = translate_types env t in
-            let vars, vars_lin = type_vars fresh_types t in
-            let bt = arg_to_body_type vars t in
+        | EFun (lin, tv, p, t, e) ->
+            let vars, vars_lin = type_vars fresh_types tv in
             let env = { env with 
               type_vars = env.type_vars ++ vars;
               valid_types = env.valid_types ++ vars_lin } in
-            assert_valid_types env bt;
-            let venv_p = check_pattern env p bt in
+            let t = translate_types env t in
+            assert_valid_types env t;
+            let venv_p = check_pattern env p t in
             let venv1 = if lin then venv else non_lin_env venv in
             let (t1, used) = aux { env with vars = venv1 ++ venv_p } e in
             let t1 = body_to_res_type vars t1 in
+            let t = body_to_res_type vars t in
             let not_used = lin_env venv_p -- used in
             assert_all_used not_used;
             (TFunc (lin, t, t1), used -- venv_p)
@@ -227,13 +233,15 @@ let infer_type env =
         | EArray a ->
             let (t, used) = aux_list env a in
             (TArray (true, unify_all t), used)
-        | EEmptyList -> (TList (TVar (true, "a")), StrEnv.empty)
+        | EEmptyList -> (TList (TVar (AnyLin, "a")), StrEnv.empty)
         | EString x -> (TPrim (false, "string"), StrEnv.empty)
         | EInt x -> (TPrim (false, "int"), StrEnv.empty)
         | EVar x -> 
             match StrEnv.find_opt x venv with
               | Some t -> (t, if is_linear t then StrEnv.singleton x t else StrEnv.empty)
               | None -> failwith ("Unbound variable " ^ x)
+        in (* Format.fprintf Format.std_formatter "%a : %a\n" Pretty.print_type (fst res) Pretty.print_expr ee; *) 
+        res
       with TypeError_ msg -> raise @@ TypeError (msg, ee)
 
   and aux_list env el =

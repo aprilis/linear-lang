@@ -15,3 +15,5 @@ val (--): 'a str_env -> 'a str_env -> 'a str_env
 val const: 'a -> 'b -> 'a
 val negate: ('a -> bool) -> 'a -> bool
 val id: 'a -> 'a
+
+val flip: ('a -> 'b -> 'c) -> 'b -> 'a -> 'c

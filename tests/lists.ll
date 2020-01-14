@@ -1,10 +1,10 @@
-let double = fix (fun (f : forall a . [a] -> [a]) ->
+let double = fix (fun <a> (f : [a] -> [a]) ->
     fun (l : [a]) ->
         case l of
             | [] -> []
             | h::t -> h::h::(f t))
     in
-let map = fun (g : forall ?a, ?b . a -> b) ->
+let map = fun <?a, ?b> (g : !a -> !b) ->
     fix (fun (f : [!a] -> [!b]) ->
         fun (l : [!a]) ->
             case l of

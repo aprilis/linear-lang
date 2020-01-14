@@ -1,4 +1,4 @@
-let fold = fix (fun (rec : forall ?a, ?b . (a -> b -o b) -> [a] -o b -o b) ->
+let fold = fix (fun <?a, ?b> (rec : (!a -> !b -o !b) -> [!a] -o !b -o !b) ->
                 fun (f : (!a -> !b -o !b)) ->
                 fun (l : [!a]) -o fun (x : !b) -o
                     case l of
@@ -17,11 +17,11 @@ let {arr1, arr2} arr =
     fold (
         fun (i : int) -> 
         fun (arr : ![|int|]) -o
-            update i (lookup i arr1 + lookup i arr2) arr)
+            update arr i (lookup arr1 i + lookup arr2 i))
         rng (arr_from_elem n 0)
     in let {arr} n = fold (
         fun (i : int) ->
         fun (n : int) -o
-            n * lookup i arr)
+            n * lookup arr i)
         rng 1 in
     drop arr1; drop arr2; drop arr; n
