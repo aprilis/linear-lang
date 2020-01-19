@@ -2,6 +2,15 @@
 open Lexing
 open Parser
 
+let escape_chars = [
+  ('t', '\t');
+  ('n', '\n');
+  ('r', '\r');
+  ('\\', '\\');
+  ('"', '"');
+  ('\'', '\'')
+]
+
 }
 
 let white = [' ' '\t']+
@@ -10,6 +19,7 @@ let int = '-'? ['0'-'9'] ['0'-'9']*
 let idchar = ['a'-'z' 'A'-'Z' '_']
 let varid = ['a'-'z' '_'] (idchar | ['0'-'9'])*
 let constrid = ['A'-'Z'] (idchar | ['0'-'9'])*
+let escaped = '\\' ['t' 'n' 'r' '\\' '"' '\'']
 
 rule read =
   parse
@@ -17,8 +27,9 @@ rule read =
   | newline {new_line lexbuf; read lexbuf}
   | int {INT (int_of_string (Lexing.lexeme lexbuf))}
   | '"' { read_string (Buffer.create 16) lexbuf }
+  | '\'' { read_char lexbuf }
   | "type" {TYPE}
-  | "forall" {FORALL}
+  | "use" {USE}
   | "fun" {FUN}
   | "->" {ARROW}
   | "-o" {LIN_ARROW}
@@ -43,7 +54,9 @@ rule read =
   | "&&" {AND}
   | "||" {OR}
   | "::" {CONS}
+  | "++" {CONCAT}
   | ";" {SEMICOLON}
+  | "|>" {PIPE}
   | ":" {COLON}
   | "." {DOT}
   | "?" {QUEST}
@@ -66,16 +79,17 @@ rule read =
 and read_string buf =
   parse
   | '"'       { STRING (Buffer.contents buf) }
-  | '\\' '/'  { Buffer.add_char buf '/'; read_string buf lexbuf }
-  | '\\' '\\' { Buffer.add_char buf '\\'; read_string buf lexbuf }
-  | '\\' 'b'  { Buffer.add_char buf '\b'; read_string buf lexbuf }
-  | '\\' 'f'  { Buffer.add_char buf '\012'; read_string buf lexbuf }
-  | '\\' 'n'  { Buffer.add_char buf '\n'; read_string buf lexbuf }
-  | '\\' 'r'  { Buffer.add_char buf '\r'; read_string buf lexbuf }
-  | '\\' 't'  { Buffer.add_char buf '\t'; read_string buf lexbuf }
+  | escaped   { let ch = List.assoc (Lexing.lexeme_char lexbuf 1) escape_chars in
+                Buffer.add_char buf ch; read_string buf lexbuf }
   | [^ '"' '\\']+
     { Buffer.add_string buf (Lexing.lexeme lexbuf);
       read_string buf lexbuf
     }
   | _ { failwith ("Illegal string character: " ^ Lexing.lexeme lexbuf) }
   | eof { failwith ("String is not terminated") }
+and read_char =
+  parse
+  | escaped '\'' { CHAR (List.assoc (Lexing.lexeme_char lexbuf 1) escape_chars) }
+  | [^ '\'' '\\'] '\'' { CHAR (Lexing.lexeme_char lexbuf 1) }
+  | _ { failwith ("Illegal char literal: " ^ Lexing.lexeme lexbuf) }
+  | eof { failwith ("Char is not terminated") }

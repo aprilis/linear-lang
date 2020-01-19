@@ -19,7 +19,7 @@ let print_list f ppf l =
   match l with
     | h::t ->
       f ppf h;
-      List.iter (fprintf ppf ",@ %a" f) t
+      List.iter (fprintf ppf ", %a" f) t
     | [] -> ()
 
 let print_lin ppf l = if l then print_str ppf "!"
@@ -51,6 +51,7 @@ let op_str op =
   match op with
     | OAnd -> "&&"
     | OCons -> "::"
+    | OConcat -> "++"
     | OMinus -> "-"
     | OMult -> "*"
     | ODiv -> "/"
@@ -63,6 +64,7 @@ let op_str op =
     | OOr -> "||"
     | OPlus -> "+"
     | OSemicolon -> ";"
+    | OPipe -> "|>"
 
 let rec print_pat ppf p =
   match p with
@@ -87,7 +89,7 @@ let print_exp =
       | EIf(cond, e1, e2) ->
           fprintf ppf "if %a then@ %a@ else %a" print_e cond print_e e1 print_e e2
       | EInt x -> fprintf ppf "%d" x
-      | EString x -> fprintf ppf "\"%s\"" x
+      | EChar x -> fprintf ppf "\"%c\"" x
       | ELet(pat, e, e1) -> fprintf ppf "let %a =@ %a@ in %a" print_pat pat print_e e print_e e1
       | EROLet(ro, pat, e, e1) -> 
           fprintf ppf "let {%a}@ %a =@ %a@ in %a" (print_list print_str) ro print_pat pat
@@ -108,7 +110,7 @@ let print_exp =
 let rec print_val ppf (lazy v) =
   match v with
     | Eval.VInt x -> print_int ppf x
-    | Eval.VString x -> print_str ppf x
+    | Eval.VChar x -> fprintf ppf "'%c'" x
     | Eval.VTuple l -> fprintf ppf "(%a)" (print_list print_val) l
     | Eval.VEmptyList
     | Eval.VCons (_, _) -> fprintf ppf "[%a]" (print_list print_val) 

@@ -155,7 +155,7 @@ let translate_types env =
         end
     | t -> t)
 
-let infer_type env =
+let infer_type env e =
   let fresh_types = 
     names |> Seq.filter (fun x -> not @@ StrEnv.mem x env.types) |> seq_to_stream
     in
@@ -234,7 +234,7 @@ let infer_type env =
             let (t, used) = aux_list env a in
             (TArray (true, unify_all t), used)
         | EEmptyList -> (TList (TVar (AnyLin, "a")), StrEnv.empty)
-        | EString x -> (TPrim (false, "string"), StrEnv.empty)
+        | EChar x -> (TPrim (false, "char"), StrEnv.empty)
         | EInt x -> (TPrim (false, "int"), StrEnv.empty)
         | EVar x -> 
             match StrEnv.find_opt x venv with
@@ -250,5 +250,8 @@ let infer_type env =
       let (t, used1) = aux env e in
       (disjoint_union_lin used used1, t)) StrEnv.empty
     |> swap_pair
-    
-  in fst << aux env
+    in
+  let (t, used) = aux env e in
+  let not_used = lin_env env.vars -- used in
+  assert_all_used not_used;
+  t

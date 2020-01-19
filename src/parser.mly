@@ -1,20 +1,23 @@
 %token <int> INT
+%token <char> CHAR
 %token <string> STRING
 %token <string> VAR_ID
 %token <string> CONSTR_ID
-%token TYPE FORALL
+%token TYPE
 %token FUN ARROW LIN_ARROW
-%token LET BE IN
+%token USE LET BE IN
 %token IF THEN ELSE
 %token CASE OF
 %token DOT QUEST
 %token SEMICOLON COLON COMMA BAR EXCL
 %token LPAR RPAR LARRAY RARRAY LBRACKET RBRACKET LBRACE RBRACE
-%token PLUS MINUS MULT DIV GT LT GEQ LEQ EQ NEQ AND OR CONS
+%token PLUS MINUS MULT DIV GT LT GEQ LEQ EQ NEQ AND OR CONS CONCAT PIPE
 %token WILD
 %token EOF
 
 %right SEMICOLON
+%left PIPE
+%right CONCAT
 %right CONS
 %left AND OR
 %left GT LT GEQ LEQ EQ NEQ
@@ -24,13 +27,17 @@
 
 %start <Types.prog> prog_eof
 %start <string Types.typ> type_eof
-%start <Types.type_def> type_def_eof
+%start <Types.type_def> type_def_opt_eof
 
 %%
 
-prog_eof: types = type_def*; e = expr; EOF  {(types, e)}
+prog_eof: types = type_def*; ue = use; EOF  {let (u, e) = ue in (types, u, e)}
 type_eof: t = var_typ; EOF                  {t}
-type_def_eof: t = type_def; EOF             {t}
+type_def_opt_eof: t = type_def_opt; EOF     {t}
+
+use:
+  | e = expr                                                  {([], e)}
+  | USE; v = separated_nonempty_list(COMMA, id); IN; e = expr {(v, e)}
 
 expr:
   | FUN; v = type_var_list; LPAR; x = pat; COLON; t = typ; RPAR; lin = arrow; e = expr       
@@ -55,13 +62,15 @@ app: atoms = atom+ {
 atom:
   | LPAR; e = expr; RPAR                                    {e}
   | LPAR; items = separated_list(COMMA, expr); RPAR         {Types.ETuple (items)}
-  | LBRACKET; items = separated_list(COMMA, expr); RBRACKET {
-      List.fold_right (fun x y -> Types.EOp(Types.OCons, x, y)) items Types.EEmptyList
-    }
+  | LBRACKET; items = separated_list(COMMA, expr); RBRACKET {Types.unroll_list items}
   | LARRAY; items = separated_list(COMMA, expr); RARRAY     {Types.EArray (items)}
   | n = INT                                                 {Types.EInt (n)}
-  | s = STRING                                              {Types.EString (s)}
+  | c = CHAR                                                {Types.EChar (c)}
+  | s = STRING                                              {String.to_seq s |> List.of_seq
+                                                             |> List.map (fun c -> Types.EChar (c))
+                                                             |> Types.unroll_list}
   | x = id                                                  {Types.EVar (x)}
+  | EXCL; x = id                                            {Types.EVar ("!" ^ x)}
 
 braced_list: LBRACE; l = separated_list(COMMA, id); RBRACE {l}
 
@@ -79,7 +88,9 @@ braced_list: LBRACE; l = separated_list(COMMA, id); RBRACE {l}
   | AND     {Types.OAnd}
   | OR      {Types.OOr}
   | CONS    {Types.OCons}
+  | CONCAT  {Types.OConcat}
   | SEMICOLON   {Types.OSemicolon}
+  | PIPE        {Types.OPipe}
 
 arrow:
   | ARROW     {false}
@@ -90,8 +101,8 @@ pat:
   | WILD                                                    {Types.PWild}
   | LPAR; items = separated_list(COMMA, pat); RPAR          {Types.PTuple (items)}
   | LBRACKET; items = separated_list(COMMA, pat); RBRACKET  {
-      List.fold_right (fun x y -> Types.PCons (x, y)) items Types.PEmptyList
-    }
+      List.fold_right (fun x y -> Types.PCons(x, y)) items Types.PEmptyList
+  }
   | h = pat; CONS; t = pat                                  {Types.PCons (h, t)}
   | lin = boption(EXCL); constr = CONSTR_ID; p = pat?       {Types.PConstr (lin, constr, p)}
 
@@ -129,6 +140,10 @@ match_item: p = pat; ARROW; e = expr                             {(p, e)}
 type_def: TYPE; lin = boption(EXCL); x = id; BE; items = separated_nonempty_list(BAR, type_option)
                                                             {Types.TypeDef (lin, x, items)}
 type_option: x = CONSTR_ID; t = preceded(OF, typ)?            {(x, t)}
+
+type_def_opt:
+  | tp = type_def                     {tp}
+  | TYPE; lin = boption(EXCL); x = id {Types.TypeDef (lin, x, [])}
 
 id:
   | x = VAR_ID    {x}

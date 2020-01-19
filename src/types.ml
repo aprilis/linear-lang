@@ -24,7 +24,7 @@ type pattern =
 
 type operator = OPlus | OMinus | OMult | ODiv
               | OGt | OLt | OGeq | OLeq | OEq | ONeq 
-              | OAnd | OOr | OCons | OSemicolon
+              | OAnd | OOr | OCons | OConcat | OSemicolon | OPipe
 
 type expr = 
   | EFun of linearity * (string * var_linearity) list * pattern * string typ * expr 
@@ -38,10 +38,10 @@ type expr =
   | EEmptyList 
   | EArray of expr list 
   | EInt of int 
-  | EString of string 
+  | EChar of char 
   | EVar of string
 
-type prog = type_def list * expr
+type prog = type_def list * string list * expr
 
 let rec is_linear = function
   | TPrim (l, _)
@@ -98,3 +98,6 @@ let type_var_list t =
     | TVar (l, x) -> Some (x, l)
     | _ -> None)
   |> List.sort compare |> unique_sorted
+
+let unroll_list items =
+  List.fold_right (fun x y -> EOp(OCons, x, y)) items EEmptyList

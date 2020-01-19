@@ -4,7 +4,7 @@ module StrEnv = Map.Make(String)
 
 type value = 
   | VInt of int 
-  | VString of string 
+  | VChar of char 
   | VCons of lazy_value * lazy_value
   | VEmptyList
   | VTuple of lazy_value list
@@ -16,7 +16,7 @@ and lazy_value = value Lazy.t
 type op_env = operator -> lazy_value -> lazy_value -> value
 type env = {
   ops: op_env;
-  vars: value StrEnv.t;
+  vars: value str_env;
 }
 
 exception RuntimeError of string
@@ -31,7 +31,7 @@ let rec find_map f = function
 
 exception MatchFailure
 
-let eval prelude =
+let eval prelude e =
   let rec bind_pattern_impl v p =
     match p, v with
       | PVar x, _ -> StrEnv.singleton x v
@@ -83,7 +83,7 @@ let eval prelude =
     | EArray l ->
         VArray (l |> List.map (lazy_eval env) |> Array.of_list)
     | EInt x -> VInt x
-    | EString x -> VString x
+    | EChar x -> VChar x
     | EVar x -> Lazy.force @@ StrEnv.find x env
   and lazy_eval env e = lazy (eval env e)
   and force_eager (lazy v) =
@@ -93,7 +93,9 @@ let eval prelude =
       | VArray a -> Array.iter force_eager a
       | VConstr (_, Some c) -> force_eager c
       | _ -> ()
-  in lazy_eval (StrEnv.map Lazy.from_val prelude.vars)
+    in
+  let res = lazy_eval (StrEnv.map Lazy.from_val prelude.vars) e in
+  force_eager res; res
 
 let rec to_list (lazy v) = match v with
   | VCons (h, t) -> h :: to_list t
