@@ -28,6 +28,7 @@ let type_defs = List.map (Parse.parse_text Parser.type_def_opt_eof) [
   "type char";
   "type int";
   "type void";
+  "type line_opt = Line of [char] | EOF";
   "type !stdin";
   "type !stdout";
 ]
@@ -39,9 +40,9 @@ let vars = [
   ("arr_from_list", "<?a> [!a] -> ![|!a|]");
   ("lookup", "<a> [|a|] -> int -> a");
   ("update", "<?a> ![|!a|] -> int -o !a -o ![|!a|]");
-  ("drop", "<!a> !a -> ()");
+  ("drop", "<?a> ![|!a|] -> ()");
   ("print", "[char] -> !stdout -> !stdout");
-  ("read_line", "!stdin -> ([char], !stdin)");
+  ("read_line", "!stdin -> (line_opt, !stdin)");
   ("int_of_string", "[char] -> int");
   ("string_of_int", "int -> [char]")
 ] |> List.to_seq |> StrEnv.of_seq |> StrEnv.map parse_type
@@ -136,8 +137,13 @@ let vars = [
   ("drop", vfunc (fun _ -> unit_const));
   ("print", vfunc2 (fun v s -> Lazy.from_val v |> vchar_list_to_string |> print_string;
                                s));
-  ("read_line", vfunc (fun s -> let line = read_line () |> string_to_vchar_list in
-                                VTuple [line; Lazy.from_val s]));
+  ("read_line", vfunc (fun s ->
+    let res =
+      try let line = read_line () |> string_to_vchar_list in
+          VConstr ("Line", Some line)
+      with End_of_file -> VConstr ("EOF", None)
+      in
+    VTuple [Lazy.from_val res; Lazy.from_val s]));
   ("int_of_string", vfunc (fun v -> VInt (Lazy.from_val v |>
                                           vchar_list_to_string |>
                                           int_of_string)));
