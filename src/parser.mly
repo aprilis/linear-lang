@@ -139,7 +139,7 @@ match_item: p = pat; ARROW; e = expr                             {(p, e)}
 
 type_def: TYPE; lin = boption(EXCL); x = id; BE; items = separated_nonempty_list(BAR, type_option)
                                                             {Types.TypeDef (lin, x, items)}
-type_option: x = CONSTR_ID; t = preceded(OF, typ)?            {(x, t)}
+type_option: x = CONSTR_ID; t = typ?                             {(x, t)}
 
 type_def_opt:
   | tp = type_def                     {tp}

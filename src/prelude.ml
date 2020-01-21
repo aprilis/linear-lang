@@ -28,7 +28,7 @@ let type_defs = List.map (Parse.parse_text Parser.type_def_opt_eof) [
   "type char";
   "type int";
   "type void";
-  "type line_opt = Line of [char] | EOF";
+  "type line_opt = Line [char] | EOF";
   "type !stdin";
   "type !stdout";
 ]
@@ -127,7 +127,9 @@ let vars = [
       Lazy.force @@ g x)
     in VFunc fix);
   ("len", vfunc (fun (VArray a) -> VInt (Array.length a)));
-  ("arr_from_elem", vfunc2 (fun (VInt s) x -> VArray (Array.make s (Lazy.from_val x))));
+  ("arr_from_elem", vfunc (fun (VInt s) -> 
+                    VFunc (fun x -> 
+                      lazy (VArray (Array.make s x)))));
   ("arr_from_list", VFunc (fun x -> lazy (VArray (to_list x |> Array.of_list))));
   ("lookup", vfunc2 (fun (VArray a) (VInt i) ->
     try Lazy.force a.(i) with Invalid_argument _ -> raise @@ RuntimeError "Invalid array index"));
@@ -160,7 +162,7 @@ let used_vars = [
 let runtime_env_default = {
   ops = operator_impl;
   vars = vars;
-}
+} |> List.fold_right Type_def.add_to_runtime type_defs
 
 let runtime_env used = 
   let u = StrEnv.filter (fun x _ -> List.mem x used) used_vars in
