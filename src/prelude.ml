@@ -38,8 +38,8 @@ let vars = [
   ("len", "<?a> [|!a|] -> int");
   ("arr_from_elem", "<a> int -> a -> ![|a|]");
   ("arr_from_list", "<?a> [!a] -> ![|!a|]");
-  ("lookup", "<a> [|a|] -> int -> a");
-  ("update", "<?a> ![|!a|] -> int -o !a -o ![|!a|]");
+  ("lookup", "<a> int -> [|a|] -> a");
+  ("update", "<?a> (!a -> !a) -> int -> ![|!a|] -> ![|!a|]");
   ("drop", "<?a> ![|!a|] -> ()");
   ("print", "[char] -> !stdout -> !stdout");
   ("read_line", "!stdin -> (line_opt, !stdin)");
@@ -131,10 +131,10 @@ let vars = [
                     VFunc (fun x -> 
                       lazy (VArray (Array.make s x)))));
   ("arr_from_list", VFunc (fun x -> lazy (VArray (to_list x |> Array.of_list))));
-  ("lookup", vfunc2 (fun (VArray a) (VInt i) ->
+  ("lookup", vfunc2 (fun (VInt i) (VArray a) ->
     try Lazy.force a.(i) with Invalid_argument _ -> raise @@ RuntimeError "Invalid array index"));
-  ("update", vfunc2 (fun (VArray a) (VInt i) ->
-    VFunc (fun x -> try lazy(a.(i) <- x; VArray a) with
+  ("update", vfunc2 (fun (VFunc f) (VInt i) ->
+    VFunc (fun (lazy (VArray a)) -> try lazy(a.(i) <- f (a.(i)); VArray a) with
       Invalid_argument _ -> raise @@ RuntimeError "Invalid array index")));
   ("drop", vfunc (fun _ -> unit_const));
   ("print", vfunc2 (fun v s -> Lazy.from_val v |> vchar_list_to_string |> print_string;
@@ -146,9 +146,9 @@ let vars = [
       with End_of_file -> VConstr ("EOF", None)
       in
     VTuple [Lazy.from_val res; Lazy.from_val s]));
-  ("int_of_string", vfunc (fun v -> VInt (Lazy.from_val v |>
-                                          vchar_list_to_string |>
-                                          int_of_string)));
+  ("int_of_string", vfunc (fun v -> 
+    try VInt (Lazy.from_val v |> vchar_list_to_string |> int_of_string)
+    with Failure  _ -> raise @@ RuntimeError "int_of_string failure"));
   ("string_of_int", vfunc (fun (VInt x) -> string_of_int x |>
                                            string_to_vchar_list |>
                                            Lazy.force))

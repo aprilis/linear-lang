@@ -15,13 +15,13 @@ let arr1 = arr_from_elem n 1 in
 let arr2 = arr_from_list rng in
 let {arr1, arr2} arr = 
     fold (
-        fun (i : int) -> 
-        fun (arr : ![|int|]) -o
-            update arr i (lookup arr1 i + lookup arr2 i))
+        fun (i : int) ->
+        fun (arr : ![|int|]) -o 
+            update (fun (_ : int) -> lookup i arr1 + lookup i arr2) i arr)
         rng (arr_from_elem n 0)
     in let {arr} n = fold (
         fun (i : int) ->
         fun (n : int) -o
-            n * lookup arr i)
+            n * lookup i arr)
         rng 1 in
     drop arr1; drop arr2; drop arr; n
